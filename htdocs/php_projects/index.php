@@ -1,0 +1,311 @@
+<?php
+putenv("FACEBOOK_APP_ID=731823050230924");
+putenv("FACEBOOK_SECRET=7ff47887fef17ecd0bf59c748c2ae760");
+
+//echo "phpInfo is: "+ phpinfo();
+
+/**
+ * This sample app is provided to kickstart your experience using Facebook's
+ * resources for developers.  This sample app provides examples of several
+ * key concepts, including authentication, the Graph API, and FQL (Facebook
+ * Query Language). Please visit the docs at 'developers.facebook.com/docs'
+ * to learn more about the resources available to you
+ */
+
+// Provides access to app specific values such as your app id and app secret.
+// Defined in 'AppInfo.php'
+require_once('AppInfo.php');
+
+// Enforce https on production
+/*if (substr(AppInfo::getUrl(), 0, 8) != 'https://' && $_SERVER['REMOTE_ADDR'] != '127.0.0.1') {
+  header('Location: https://'. $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI']);
+  exit();
+}
+*/
+
+// This provides access to helper functions defined in 'utils.php'
+require_once('utils.php');
+
+
+/*****************************************************************************
+ *
+ * The content below provides examples of how to fetch Facebook data using the
+ * Graph API and FQL.  It uses the helper functions defined in 'utils.php' to
+ * do so.  You should change this section so that it prepares all of the
+ * information that you want to display to the user.
+ *
+ ****************************************************************************/
+
+//require_once('sdk/src/facebook.php');
+require_once('vendor/facebook/php-sdk-v4/src/Facebook/facebook.php');
+
+$facebook = new Facebook(array(
+  'appId'  => AppInfo::appID(),
+  'secret' => AppInfo::appSecret(),
+  'sharedSession' => true,
+  'trustForwarded' => true,
+));
+
+
+$user_id = $facebook->getUser();
+if ($user_id) {
+  try {
+    // Fetch the viewer's basic information
+    $basic = $facebook->api('/me');
+  } catch (FacebookApiException $e) {
+    // If the call fails we check if we still have a user. The user will be
+    // cleared if the error is because of an invalid accesstoken
+    if (!$facebook->getUser()) {
+      header('Location: '. AppInfo::getUrl($_SERVER['REQUEST_URI']));
+      exit();
+    }
+  }
+
+  // This fetches some things that you like . 'limit=*" only returns * values.
+  // To see the format of the data you are retrieving, use the "Graph API
+  // Explorer" which is at https://developers.facebook.com/tools/explorer/
+ 
+
+  // And this returns 16 of your photos.
+  $photos = idx($facebook->api('/me/photos?limit=16'), 'data', array());
+  $random = rand(0, count($photos));
+	$image = $photos[$random];
+	$src= $image['source'];
+
+}
+
+
+
+// Fetch the basic info of the app that they are using
+$app_info = $facebook->api('/'. AppInfo::appID());
+
+$app_name = idx($app_info, 'name', '');
+
+?>  
+
+<!DOCTYPE html>
+<html xmlns:fb="http://ogp.me/ns/fb#" lang="en">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=2.0, user-scalable=yes" />
+	
+	
+<script type="text/javascript">
+function logResponse(response){
+		if(console&& console.log){
+				console.log('The response was', response);
+	}
+}
+
+
+</script>
+</head>
+
+<body>
+	<div id="fb-root"></div>
+
+	<script>
+  window.fbAsyncInit = function() {
+    FB.init({
+      appId      : '731823050230924',
+      xfbml      : true,
+      version    : 'v2.2'
+    });
+
+    // ADD ADDITIONAL FACEBOOK CODE HERE
+    // Place following code after FB.init call.
+
+function onLogin(response) {
+  if (response.status == 'connected') {
+    FB.api('/me?fields=first_name', function(data) {
+      var welcomeBlock = document.getElementById('fb-welcome');
+      welcomeBlock.innerHTML = 'Hello, ' + data.first_name + '!';
+    });
+  }
+}
+
+FB.getLoginStatus(function(response) {
+  // Check login status on load, and if the user is
+  // already logged in, go directly to the welcome message.
+  if (response.status == 'connected') {
+    onLogin(response);
+  } else {
+    // Otherwise, show Login dialog first.
+    FB.login(function(response) {
+      onLogin(response);
+    }, {scope: 'user_friends, email'});
+  }
+});
+  };
+
+  (function(d, s, id){
+     var js, fjs = d.getElementsByTagName(s)[0];
+     if (d.getElementById(id)) {return;}
+     js = d.createElement(s); js.id = id;
+     js.src = "//connect.facebook.net/en_US/sdk.js";
+     fjs.parentNode.insertBefore(js, fjs);
+   }(document, 'script', 'facebook-jssdk'));
+   
+   
+   
+ 
+    
+</script>
+
+
+
+<h1 id="fb-welcome"><?php echo he($app_name); ?></h1>
+<h2><?php echo $user_id; ?></h2>
+
+	
+	<header class="clearfix">
+		
+<div
+  class="fb-like"
+  data-send="true"
+  data-width="450"
+  data-show-faces="true">
+</div>
+					
+	</header>
+	
+	
+	
+	<canvas id="game" width="400" height="400"></canvas>	
+	
+		
+	<script type="text/javascript" >
+
+var canvas;
+var context;
+var Image;
+var solved;
+
+var gameSize;
+var gridSize;
+var tileSize;
+var boardParts = {};
+
+var clickLoc = {
+	x:0,
+	y:0
+};
+
+var emptyLoc = {
+	x:0,
+	y:0
+};
+
+var tileWidth;
+var tileHeight;
+var gridWidth;
+var gridHeight;
+
+function setImage(imagePath){
+	Image = new Image();
+	Image.src = imagePath;
+	Image.addEventListener('load', drawTiles, false);
+}
+function addEvents(canvas){
+	canvas.onmousemove = function(event){
+		clickLoc.x = Math.floor((event.pageX - this.offsetLeft)/ tileWidth );
+		clickLoc.y = Math.floor((event.pageY - this.offsetTop)/ tileHeight );
+	};
+	canvas.onclick = function(){
+		if(distance(clickLoc.x, clickLoc.y, emptyLoc.x, emptyLoc.y) == 1){
+			slideTile(emptyLoc, clickLoc);
+			drawTiles();
+		}
+		if(solved){
+			setTimeout(function(){alert("You solved it!");}, 500);
+		}
+	};
+}
+function setBoard(){
+	boardParts = new Array(gridSize);
+	for ( var i=0; i < gridSize; ++i) {
+		boardParts[i] = new Array(gridSize);
+		for( var j=0; j < gridSize; ++j)
+			boardParts[i][j]= {
+				x: (gridSize -1) - i,
+				y: (gridSize -1) - j
+			};
+		}
+		emptyLoc.x = boardParts[gridSize -1][gridSize -1].x;
+		emptyLoc.y = boardParts[gridSize -1][gridSize -1].y;
+		solved = false;
+	}
+	
+function drawTiles(){
+	context.clearRect( 0, 0, gameSize, gameSize);
+	for ( var i=0; i < gridSize ; ++i){
+		for(var j=0; j < gridSize; ++j){
+			var x = boardParts[i][j].x;
+			var y = boardParts[i][j].y;
+			if( i != emptyLoc.x || j != emptyLoc.y || solved == true){
+				context.drawImage(Image, x * tileWidth, y * tileHeight, tileWidth, tileHeight,
+													i * tileWidth, j * tileHeight, tileWidth, tileHeight);
+			}
+		}
+	}
+}
+
+function distance(x1, y1, x2, y2){
+	return Math.abs(x1-x2) + Math.abs(y1-y2);
+}
+function slideTile(toLoc, fromLoc){
+	if(!solved){
+		boardParts[toLoc.x][toLoc.y].x = boardParts[fromLoc.x][fromLoc.y].x;
+		boardParts[toLoc.x][toLoc.y].y = boardParts[fromLoc.x][fromLoc.y].y;
+		boardParts[fromLoc.x][fromLoc.y].x = gridSize -1;
+		boardParts[fromLoc.x][fromLoc.y].y = gridSize -1;
+		toLoc.x = fromLoc.x;
+		toLoc.y = fromLoc.y;
+		checkSolved();
+	}
+}
+function checkSolved(){
+	var flag = true;
+	for(var i=0; i < gridSize; ++i){
+		for( var j=0; j < gridSize; ++j){
+			if(boardParts[i][j].x != i || boardParts[i][j].y != j){
+				flag = false;
+			}
+		}
+	}
+	solved = flag;
+}
+
+function init( canvasId, imagePath, gridCount){
+	canvas = document.getElementById(canvasId);
+	context = canvas.getContext('2d');
+	gameSize = canvas.width;
+
+	gridWidth = canvas.width;
+	gridHeight = canvas.height;
+
+	gridSize = gridCount;
+//	tileSize = gameSize / gridSize;
+
+	tileWidth= Math.floor(gridWidth / gridSize);
+	tileHeight= Math.floor(gridHeight / gridSize);
+	
+	setImage(imagePath);
+	addEvents(canvas);
+	solved = false;
+	
+	setBoard();
+}
+
+//init('game', 'images/Desert.jpg',2);
+
+/*
+		var imagePath = 'https://fbcdn-sphotos-b-a.akamaihd.net/hphotos-ak-xfa1/v/t1.0-9/10314693_10152365574459781_8117430126389541351_n.jpg?oh=677fe4b11e5a25933ae6de04eb5c544c&oe=551E50AE&__gda__=1427991107_e70a8302b33e1c9a811d9b978802f2c5';
+*/
+var imagePath = "<?php echo $src ?>";
+
+			
+		init('game', imagePath,2);
+	</script>
+</body>
+</html>
